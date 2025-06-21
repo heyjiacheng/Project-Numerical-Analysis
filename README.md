@@ -11,7 +11,11 @@ pixi install
 ```
 
 ### 3. Start
+start environment
 ```bash
 pixi shell
-python my_plot_fun.py
+```
+run basis function
+```bash
+python scripts/my_plot_fun.py
 ```

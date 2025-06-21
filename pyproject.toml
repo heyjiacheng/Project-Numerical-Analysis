@@ -19,5 +19,7 @@ project_numerical_analysis = { path = ".", editable = true }
 [tool.pixi.tasks]
 
 [tool.pixi.dependencies]
+python = "3.11.*"
 numpy = ">=2.3.0,<3"
+sympy = ">=1.14.0,<2"
 matplotlib = ">=3.10.3,<4"
