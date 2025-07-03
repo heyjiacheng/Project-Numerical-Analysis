@@ -10,7 +10,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 # Define 4 form functions:
-def form(x) -> np.ndarray:
+def form(x):
     form_1 = 1 - 3*x**2 + 2*x**3
     form_2 = x * ((x - 1)**2)
     form_3 = 3*x**2 - 2*x**3

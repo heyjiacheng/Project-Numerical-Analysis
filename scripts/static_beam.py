@@ -26,11 +26,13 @@ elements = []
 for i in range(n):
     elements.append([i, i + 1])  # Node indices of each element, [start, end]
 
-
 # LOCAL MATRICES
 def local_matrices(E_val, I_val, rho_val, h_val):
     # Define symbols
     E, I, h, rho, x = sp.symbols('E I h rho x')
+
+    # Get symbolic form functions
+    forms = form(x)
 
     # Initialize the stiffness and mass matrices
     Stiffness = sp.Matrix.zeros(4, 4)
@@ -40,14 +42,14 @@ def local_matrices(E_val, I_val, rho_val, h_val):
     for i in range(4):
         for j in range(i, 4):
             # Stiffness matrix
-            d2bi_dx2 = sp.diff(form(x), x, 2)  # Second derivative i
-            d2bj_dx2 = sp.diff(form(x), x, 2)  # Second derivative j
+            d2bi_dx2 = sp.diff(forms[i], x, 2)  # Second derivative of form function i
+            d2bj_dx2 = sp.diff(forms[j], x, 2)  # Second derivative of form function j
 
             Stiffness[i, j] = E * I * sp.integrate(d2bi_dx2 * d2bj_dx2, (x, 0, h))
             Stiffness[j, i] = Stiffness[i, j]  # Symmetry
 
             # Mass matrix
-            Mass[i, j] = rho * sp.integrate(form(x) * form(x), (x, 0, h))
+            Mass[i, j] = rho * sp.integrate(forms[i] * forms[j], (x, 0, h))
             Mass[j, i] = Mass[i, j]  # Symmetry
 
     # Substitute numerical values into the symbolic matrices
@@ -59,3 +61,25 @@ def local_matrices(E_val, I_val, rho_val, h_val):
     local_m = np.array(local_m).astype(np.float64)
 
     return local_s, local_m
+
+# GLOBAL MATRICES
+def global_matrices():
+    local_s, local_m = local_matrices(E, I, rho, h)  # Compute local matrices
+
+    # Initialize global stiffness and mass matrices
+    global_s = np.zeros((2 * n_nodes, 2 * n_nodes))
+    global_m = np.zeros((2 * n_nodes, 2 * n_nodes))
+
+    for element in elements:
+        start = element[0]  # Assemble with 2 degrees of freedom
+        global_s[2 * start:2 * start + 4, 2 * start:2 * start + 4] += local_s
+        global_m[2 * start:2 * start + 4, 2 * start:2 * start + 4] += local_m
+
+    return global_s, global_m
+
+# Print the global stiffness matrix
+global_S, global_M = global_matrices()
+print("Global stiffness matrix S:")
+print(np.round(global_S, 2))
+
+
