@@ -713,7 +713,7 @@ packages:
 - pypi: ./
   name: project-numerical-analysis
   version: 0.1.0
-  sha256: 37afe40ad9e114c42b32f330519957d27f4d377becd2c6770c4f844801474edb
+  sha256: 3511ea74af3cfa0e35839805803e7708464db46bfc04275dd817ae66beec9776
   requires_python: '>=3.11'
   editable: true
 - conda: https://conda.anaconda.org/conda-forge/osx-arm64/pthread-stubs-0.4-hd74edd7_1002.conda
