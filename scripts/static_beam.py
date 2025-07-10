@@ -60,8 +60,8 @@ class FiniteElementMatrices:
         Returns:
             tuple: (local_stiffness_matrix, local_mass_matrix)
         """
-        # Define symbolic variables
-        E, I, h, rho, x = sp.symbols('E I h rho x')
+        # Define symbolic variable for integration
+        x = sp.symbols('x')
         
         # Get shape functions from external module
         shape_functions = form(x)
@@ -70,6 +70,12 @@ class FiniteElementMatrices:
         stiffness_matrix = sp.Matrix.zeros(4, 4)
         mass_matrix = sp.Matrix.zeros(4, 4)
         
+        # Get numerical values
+        h_val = self.beam.element_length
+        E_val = self.beam.youngs_modulus
+        I_val = self.beam.moment_inertia
+        rho_val = self.beam.density
+        
         # Compute matrix elements
         for i in range(4):
             for j in range(i, 4):
@@ -77,27 +83,19 @@ class FiniteElementMatrices:
                 d2_shape_i = sp.diff(shape_functions[i], x, 2)
                 d2_shape_j = sp.diff(shape_functions[j], x, 2)
                 
-                stiffness_matrix[i, j] = E * I * sp.integrate(
-                    d2_shape_i * d2_shape_j, (x, 0, h)
-                )
+                # Compute integral symbolically, then substitute values
+                integral_stiffness = sp.integrate(d2_shape_i * d2_shape_j, (x, 0, h_val))
+                stiffness_matrix[i, j] = E_val * I_val * float(integral_stiffness)
                 stiffness_matrix[j, i] = stiffness_matrix[i, j]  # Symmetry
                 
                 # Mass matrix: M_ij = ∫ ρ * N_i * N_j dx
-                mass_matrix[i, j] = rho * sp.integrate(
-                    shape_functions[i] * shape_functions[j], (x, 0, h)
-                )
+                integral_mass = sp.integrate(shape_functions[i] * shape_functions[j], (x, 0, h_val))
+                mass_matrix[i, j] = rho_val * float(integral_mass)
                 mass_matrix[j, i] = mass_matrix[i, j]  # Symmetry
         
-        # Substitute numerical values
-        substitutions = {
-            h: self.beam.element_length,
-            E: self.beam.youngs_modulus,
-            I: self.beam.moment_inertia,
-            rho: self.beam.density
-        }
-        
-        local_stiffness = np.array(stiffness_matrix.subs(substitutions)).astype(np.float64)
-        local_mass = np.array(mass_matrix.subs(substitutions)).astype(np.float64)
+        # Convert to NumPy arrays
+        local_stiffness = np.array(stiffness_matrix).astype(np.float64)
+        local_mass = np.array(mass_matrix).astype(np.float64)
         
         return local_stiffness, local_mass
     
