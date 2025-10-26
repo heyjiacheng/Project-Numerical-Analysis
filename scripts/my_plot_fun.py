@@ -3,6 +3,8 @@
 Created on Mon Jun  9 23:58:28 2025
 
 @author: jxy31
+
+用Hermite三次形函数构造出节点值和节点斜率完全确定，节点之间由三次曲线连接的逼近函数。
 """
 
 import numpy as np
@@ -18,6 +20,13 @@ def form(x):
     return np.array([form_1, form_2, form_3, form_4])
     
 def plot_piecewise_polynomial(u: np.ndarray, x_nodes: np.ndarray) -> None:
+    """
+    input:
+        u       = [w1, w1', w2, w2', ..., wn, wn']
+        x_nodes = nodal coordinates
+    output:
+        continuous curve of w(x)
+    """
     x_all = []
     w_all = []
     n = len(x_nodes)
@@ -75,6 +84,7 @@ if __name__ == "__main__":
     print(x_nodes)
     print(u)
     plot_piecewise_polynomial(u, x_nodes)
+
 
 
 
