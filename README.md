@@ -19,3 +19,8 @@ run basis function
 ```bash
 python scripts/my_plot_fun.py
 ```
+
+run static
+```bash
+python scripts/static_beam.py
+```
