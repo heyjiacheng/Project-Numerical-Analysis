@@ -26,6 +26,7 @@ python scripts/static_beam.py
 ```
 
 ### 分工
+十一月七号把动态代码写完
 点点要做的
 ```bash
 1. 考虑转角，比较运行结果；
