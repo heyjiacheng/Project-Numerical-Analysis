@@ -136,26 +136,53 @@ class LoadApplication:
     def apply_uniform_load(self, load_intensity):
         """
         Apply uniform distributed load to the beam.
-        
+
         Args:
             load_intensity (float): Load intensity (N/m)
-            
+
         Returns:
             np.ndarray: Force vector
         """
         force_vector = np.zeros(self.total_dofs)
-        
+
         # Distribute load to nodes (simplified approach)
         force_per_node = load_intensity * self.beam.element_length / 2
-        
+
         # Apply forces to displacement DOFs only (not rotation DOFs)
         for i in range(self.beam.num_elements):
             start_node_dof = 2 * i      # Displacement DOF of start node
             end_node_dof = 2 * (i + 1)  # Displacement DOF of end node
-            
+
             force_vector[start_node_dof] += force_per_node
             force_vector[end_node_dof] += force_per_node
-        
+
+        return force_vector
+
+    def apply_end_point_load(self, point_load=0.0, bending_moment=0.0):
+        """
+        Apply concentrated load and/or bending moment at the end point of the beam.
+
+        Args:
+            point_load (float): Concentrated force at end point (N), positive downward
+            bending_moment (float): Bending moment at end point (N·m),
+                                   positive causes counter-clockwise rotation
+
+        Returns:
+            np.ndarray: Force vector
+        """
+        force_vector = np.zeros(self.total_dofs)
+
+        # Last node index
+        last_node = self.beam.num_nodes - 1
+
+        # Apply point load to displacement DOF of last node
+        displacement_dof = 2 * last_node
+        force_vector[displacement_dof] = point_load
+
+        # Apply bending moment to rotation DOF of last node
+        rotation_dof = 2 * last_node + 1
+        force_vector[rotation_dof] = bending_moment
+
         return force_vector
 
 # =============================================================================
@@ -258,23 +285,30 @@ class BoundaryConditions:
 
 class BeamAnalysis:
     """Main class for beam analysis."""
-    
-    def __init__(self, beam_type="cantilever", load_intensity=10.0):
+
+    def __init__(self, beam_type="cantilever", load_type="uniform",
+                 load_intensity=10.0, point_load=0.0, bending_moment=0.0):
         """
         Initialize beam analysis.
-        
+
         Args:
             beam_type (str): Type of beam ("cantilever" or "simply_supported")
-            load_intensity (float): Uniform load intensity (N/m)
+            load_type (str): Type of loading ("uniform" or "end_point")
+            load_intensity (float): Uniform load intensity (N/m), used when load_type="uniform"
+            point_load (float): Concentrated force at end point (N), used when load_type="end_point"
+            bending_moment (float): Bending moment at end point (N·m), used when load_type="end_point"
         """
         self.beam_type = beam_type
+        self.load_type = load_type
         self.load_intensity = load_intensity
-        
+        self.point_load = point_load
+        self.bending_moment = bending_moment
+
         # Initialize components
         self.beam_params = BeamParameters()
         self.fe_matrices = FiniteElementMatrices(self.beam_params)
         self.load_handler = LoadApplication(self.beam_params)
-        
+
         # Analysis results
         self.displacement = None
         self.rotation = None  # 添加转角存储
@@ -283,22 +317,38 @@ class BeamAnalysis:
     
     def solve(self):
         """Perform the complete beam analysis."""
-        print(f"Analyzing {self.beam_type} beam with load intensity {self.load_intensity} N/m")
-        
+        # Display load information
+        if self.load_type == "uniform":
+            print(f"Analyzing {self.beam_type} beam with uniform load: {self.load_intensity} N/m")
+        elif self.load_type == "end_point":
+            print(f"Analyzing {self.beam_type} beam with end point loading:")
+            print(f"  - Point load: {self.point_load} N")
+            print(f"  - Bending moment: {self.bending_moment} N·m")
+
         # 1. Compute global matrices
-        print("Step 1: Assembling global stiffness matrix...")
+        print("\nStep 1: Assembling global stiffness matrix...")
         self.global_stiffness, self.global_mass = self.fe_matrices.assemble_global_matrices()
-        print(f"  - Global stiffness matrix shape: {self.global_stiffness.shape}\n")
-        
-        # 2. Apply loads
-        print("Step 2: Applying uniform distributed load...")
-        force_vector = self.load_handler.apply_uniform_load(self.load_intensity)
-        print(f"  - Force vector shape: {force_vector.shape}\n")
-        
+        print(f"  - Global stiffness matrix shape: {self.global_stiffness.shape}")
+
+        # 2. Apply loads based on load type
+        print("\nStep 2: Applying loads...")
+        if self.load_type == "uniform":
+            print("  - Load type: Uniform distributed load")
+            force_vector = self.load_handler.apply_uniform_load(self.load_intensity)
+        elif self.load_type == "end_point":
+            print("  - Load type: End point load and moment")
+            force_vector = self.load_handler.apply_end_point_load(
+                self.point_load, self.bending_moment
+            )
+        else:
+            raise ValueError(f"Unknown load type: {self.load_type}")
+
+        print(f"  - Force vector shape: {force_vector.shape}")
+
         # 3. Apply boundary conditions and solve using extended matrix
-        print("Step 3: Constructing extended matrix and solving...")
+        print("\nStep 3: Constructing extended matrix and solving...")
         self.displacement = self._solve_system(force_vector)
-        
+
         print("\n✓ Analysis completed successfully using extended matrix method!")
         return self.displacement
     
@@ -424,15 +474,23 @@ class BeamAnalysis:
         if self.displacement is None:
             print("No results to plot. Run solve() first.")
             return
-        
+
         plt.figure(figsize=(10, 6))
-        plt.plot(self.beam_params.node_positions, self.displacement, 
+        plt.plot(self.beam_params.node_positions, self.displacement,
                 'b-o', linewidth=2, markersize=6, label='Displacement')
-        
+
         plt.xlabel('Position along beam (m)', fontsize=12)
         plt.ylabel('Displacement (m)', fontsize=12)
-        plt.title(f'{self.beam_type.replace("_", " ").title()} Beam - '
-                 f'Load = {self.load_intensity} N/m', fontsize=14)
+
+        # Create title based on load type
+        if self.load_type == "uniform":
+            title = f'{self.beam_type.replace("_", " ").title()} Beam - Uniform Load = {self.load_intensity} N/m'
+        elif self.load_type == "end_point":
+            title = f'{self.beam_type.replace("_", " ").title()} Beam - End Point: F={self.point_load}N, M={self.bending_moment}N·m'
+        else:
+            title = f'{self.beam_type.replace("_", " ").title()} Beam'
+
+        plt.title(title, fontsize=14)
         plt.legend(fontsize=12)
         plt.grid(True, alpha=0.3)
         plt.tight_layout()
@@ -443,42 +501,77 @@ class BeamAnalysis:
 # =============================================================================
 
 if __name__ == "__main__":
-    # Configuration
-    BEAM_TYPE = "simply_supported"  # Options: "cantilever" or "simply_supported"
-    LOAD_INTENSITY = 10.0     # Load intensity in N/m
-    
-    # Perform analysis
-    analysis = BeamAnalysis(beam_type=BEAM_TYPE, load_intensity=LOAD_INTENSITY)
+    # =============================================================================
+    # CONFIGURATION - 在这里修改配置
+    # =============================================================================
+
+    # 边界条件选择 (Boundary Condition)
+    BEAM_TYPE = "cantilever"  # Options: "cantilever" or "simply_supported"
+
+    # 载荷类型选择 (Load Type)
+    LOAD_TYPE = "end_point"   # Options: "uniform" or "end_point"
+
+    # --- 均匀分布载荷参数 (用于 LOAD_TYPE = "uniform") ---
+    LOAD_INTENSITY = 10.0     # 载荷密度 (N/m)
+
+    # --- 端点载荷参数 (用于 LOAD_TYPE = "end_point") ---
+    POINT_LOAD = 100.0        # 端点集中力 (N)
+    BENDING_MOMENT = 50.0     # 端点弯矩 (N·m)
+
+    # =============================================================================
+    # ANALYSIS EXECUTION - 执行分析
+    # =============================================================================
+
+    # 创建分析对象
+    if LOAD_TYPE == "uniform":
+        analysis = BeamAnalysis(
+            beam_type=BEAM_TYPE,
+            load_type="uniform",
+            load_intensity=LOAD_INTENSITY
+        )
+    elif LOAD_TYPE == "end_point":
+        analysis = BeamAnalysis(
+            beam_type=BEAM_TYPE,
+            load_type="end_point",
+            point_load=POINT_LOAD,
+            bending_moment=BENDING_MOMENT
+        )
+    else:
+        raise ValueError(f"Unknown load type: {LOAD_TYPE}")
+
+    # 执行求解
     displacement_results = analysis.solve()
-    
-    # Display extended matrix structure (educational)
+
+    # 显示扩展矩阵结构 (可选，教学用途)
     analysis.show_extended_matrix_structure(max_display=8)
-    
-    # Display results
+
+    # =============================================================================
+    # RESULTS DISPLAY - 结果展示
+    # =============================================================================
     print("\n" + "="*80)
     print("结果 (Results)")
     print("="*80)
-    
-    # Displacement results
+
+    # 位移结果
     print("\n位移 (Displacement):")
     print(f"  Maximum displacement: {np.max(np.abs(displacement_results)):.6e} m")
     print(f"  Displacement at end: {displacement_results[-1]:.6e} m")
     print(f"  Displacement at start: {displacement_results[0]:.6e} m")
-    
-    # Rotation results (转角自由度 θ[2i+1])
+
+    # 转角结果
     if hasattr(analysis, 'rotation') and analysis.rotation is not None:
         print("\n转角 (Rotation θ[2i+1]):")
         print(f"  Maximum rotation: {np.max(np.abs(analysis.rotation)):.6e} rad")
         print(f"  Rotation at end: {analysis.rotation[-1]:.6e} rad")
         print(f"  Rotation at start: {analysis.rotation[0]:.6e} rad")
-    
-    # Display constraint forces (Lagrange multipliers)
+
+    # 约束反力 (拉格朗日乘子)
     if hasattr(analysis, 'constraint_forces'):
         print(f"\n约束反力 (Constraint Forces / Lagrange Multipliers):")
         for i, force in enumerate(analysis.constraint_forces):
             print(f"  λ[{i}] = {force:.6e} N")
-    
+
     print("="*80 + "\n")
-    
-    # Plot results
+
+    # 绘制结果
     analysis.plot_results()
