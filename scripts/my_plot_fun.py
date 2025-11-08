@@ -19,50 +19,83 @@ def form(x):
     form_4 = x**2 * (x - 1)
     return np.array([form_1, form_2, form_3, form_4])
     
-def plot_piecewise_polynomial(u: np.ndarray, x_nodes: np.ndarray) -> None:
+def plot_piecewise_polynomial(u: np.ndarray, x_nodes: np.ndarray,
+                             title: str = 'Piecewise Polynomial',
+                             xlabel: str = 'x',
+                             ylabel: str = 'w(x)',
+                             show_nodes: bool = False,
+                             figsize: tuple = (10, 6),
+                             ax=None) -> tuple:
     """
-    input:
-        u       = [w1, w1', w2, w2', ..., wn, wn']
-        x_nodes = nodal coordinates
-    output:
-        continuous curve of w(x)
+    Plot piecewise cubic Hermite polynomial using form functions.
+
+    Parameters:
+        u       : np.ndarray - [w1, w1', w2, w2', ..., wn, wn']
+                  Values and derivatives at nodes
+        x_nodes : np.ndarray - nodal coordinates
+        title   : str - plot title
+        xlabel  : str - x-axis label
+        ylabel  : str - y-axis label
+        show_nodes : bool - whether to show node markers
+        figsize : tuple - figure size
+        ax      : matplotlib axes - if provided, plot on this axes
+
+    Returns:
+        tuple: (x_all, w_all) - arrays of x and w values for the curve
     """
     x_all = []
     w_all = []
     n = len(x_nodes)
-    for i in range(n-1): # For each element in [x_i, x_{i+1}]:
+
+    for i in range(n-1):  # For each element in [x_i, x_{i+1}]:
         x_left = x_nodes[i]
         x_right = x_nodes[i+1]
         h = x_right - x_left
-        
+
         # Discrete sampling in this element
         x_local = np.linspace(x_left, x_right, 50)
-        
+
         # Standardization the sampling points: mapping to [0, 1]:
         xi = (x_local - x_left) / h
-        
+
         # Get the 4 values from array_u:
         u1 = u[2*i]
         u2 = u[2*i + 1]
         u3 = u[2*i + 2]
         u4 = u[2*i + 3]
-        
-        # interpolated function values:
+
+        # Interpolated function values:
         phi = form(xi)  # np.array with shape (4, len(xi))
         w_local = u1 * phi[0] + h * u2 * phi[1] + u3 * phi[2] + h * u4 * phi[3]
-        
+
         x_all.extend(x_local)
         w_all.extend(w_local)
-    
+
+    x_all = np.array(x_all)
+    w_all = np.array(w_all)
+
     # Visualization:
-    plt.figure(figsize=(10, 6))
-    plt.plot(x_all, w_all, 'b-', linewidth=2, label='Piecewise Polynomial')
-    plt.xlabel('x')
-    plt.ylabel('w(x)')
-    plt.title('Piecewise Polynomial')
-    plt.grid(True, alpha=0.3)
-    plt.legend()
-    plt.show()
+    if ax is None:
+        plt.figure(figsize=figsize)
+        ax = plt.gca()
+
+    ax.plot(x_all, w_all, 'b-', linewidth=2, label='Displacement')
+
+    if show_nodes:
+        # Extract node displacements from u
+        node_displacements = u[::2]
+        ax.plot(x_nodes, node_displacements, 'ro', markersize=6, label='Nodes')
+
+    ax.set_xlabel(xlabel, fontsize=12)
+    ax.set_ylabel(ylabel, fontsize=12)
+    ax.set_title(title, fontsize=14)
+    ax.grid(True, alpha=0.3)
+    ax.legend(fontsize=12)
+
+    if ax == plt.gca():
+        plt.tight_layout()
+
+    return x_all, w_all
 
 
 

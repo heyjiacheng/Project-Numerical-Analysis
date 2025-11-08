@@ -469,18 +469,28 @@ class BeamAnalysis:
         
         print("\n" + "="*80 + "\n")
     
-    def plot_results(self):
-        """Plot the displacement results."""
+    def plot_results(self, show_nodes=True):
+        """
+        Plot the displacement results using piecewise cubic polynomial interpolation.
+
+        Args:
+            show_nodes (bool): Whether to show node markers on the plot
+        """
         if self.displacement is None:
             print("No results to plot. Run solve() first.")
             return
 
-        plt.figure(figsize=(10, 6))
-        plt.plot(self.beam_params.node_positions, self.displacement,
-                'b-o', linewidth=2, markersize=6, label='Displacement')
+        if self.rotation is None:
+            print("No rotation data available. Cannot plot piecewise polynomial.")
+            return
 
-        plt.xlabel('Position along beam (m)', fontsize=12)
-        plt.ylabel('Displacement (m)', fontsize=12)
+        # Import the plotting function
+        from my_plot_fun import plot_piecewise_polynomial
+
+        # Construct u vector: [w0, θ0, w1, θ1, ..., wn, θn]
+        u = np.zeros(2 * len(self.displacement))
+        u[::2] = self.displacement    # Even indices: displacement values
+        u[1::2] = self.rotation        # Odd indices: rotation values
 
         # Create title based on load type
         if self.load_type == "uniform":
@@ -490,11 +500,20 @@ class BeamAnalysis:
         else:
             title = f'{self.beam_type.replace("_", " ").title()} Beam'
 
-        plt.title(title, fontsize=14)
-        plt.legend(fontsize=12)
-        plt.grid(True, alpha=0.3)
-        plt.tight_layout()
+        # Plot using piecewise polynomial interpolation
+        x_curve, w_curve = plot_piecewise_polynomial(
+            u=u,
+            x_nodes=self.beam_params.node_positions,
+            title=title,
+            xlabel='Position along beam (m)',
+            ylabel='Displacement (m)',
+            show_nodes=show_nodes,
+            figsize=(10, 6)
+        )
+
         plt.show()
+
+        return x_curve, w_curve
 
 # =============================================================================
 # MAIN EXECUTION
